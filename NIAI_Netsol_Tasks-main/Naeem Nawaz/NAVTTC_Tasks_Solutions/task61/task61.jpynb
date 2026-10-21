@@ -1,0 +1,142 @@
+# Text Processing with Python — Build a Text Cleaning Pipeline
+
+# Scenario
+# A Pakistani online store receives customer feedback containing inconsistent capitalization, punctuation, URLs, numbers, extra spaces, and spelling variations.
+
+# Your job is to build a text-processing program that:
+# 1. Converts text to lowercase.
+# 2. Removes URLs, HTML tags, punctuation, and numbers.
+# 3. Tokenizes sentences into words.
+# 4. Removes stop words.
+# 5. Applies stemming and lemmatization.
+# 6. Calculates word frequencies.
+# 7. Creates a cleaned version of each review.
+
+
+import re
+import html
+import pandas as pd
+import matplotlib.pyplot as plt
+
+import nltk
+from bs4 import BeautifulSoup
+from nltk.stem import PorterStemmer, WordNetLemmatizer
+from nltk.corpus import stopwords
+from collections import Counter
+
+# Download required language resources
+nltk.download("stopwords", quiet=True)
+nltk.download("wordnet", quiet=True)
+nltk.download("omw-1.4", quiet=True)
+
+# 1. Sample messy customer reviews
+reviews = [
+    "  AMAZING Product!!! Visit https://shop.example.com NOW!!! ",
+    "<p>The product was NOT good... I am disappointed.</p>",
+    "I loooove this product!!! It works perfectly :)",
+    "Delivery took 5 days. Package was damaged!!!",
+    "The QUALITY is excellent, excellent, EXCELLENT!",
+    "I don't recommend this product. It isn't worth $500.",
+    "   Fast delivery & GREAT customer service!!!   ",
+    "Product #123 costs Rs. 2,500.00 <b>today</b>!",
+]
+
+df = pd.DataFrame({"OriginalText": reviews})
+
+# 2. Define text-processing tools
+stemmer = PorterStemmer()
+lemmatizer = WordNetLemmatizer()
+
+# Preserve negation words because they can change meaning
+stop_words = set(stopwords.words("english"))
+stop_words -= {"no", "not", "nor"}
+
+# 3. Remove HTML, decode HTML entities, and clean text
+def clean_text(text):
+    text = html.unescape(text)
+    text = BeautifulSoup(text, "html.parser").get_text(" ")
+    text = text.lower()
+
+    # Remove URLs
+    text = re.sub(r"https?://\S+|www\.\S+", " ", text)
+
+    # Keep letters and apostrophes; remove numbers and punctuation
+    text = re.sub(r"[^a-z'\s]", " ", text)
+
+    # Normalize whitespace
+    text = re.sub(r"\s+", " ", text).strip()
+
+    return text
+
+df["CleanText"] = df["OriginalText"].apply(clean_text)
+
+# 4. Tokenize the cleaned text
+def tokenize(text):
+    return re.findall(r"[a-z]+(?:'[a-z]+)?", text)
+
+df["Tokens"] = df["CleanText"].apply(tokenize)
+
+# 5. Remove stop words
+def remove_stopwords(tokens):
+    return [
+        word for word in tokens
+        if word not in stop_words
+    ]
+
+df["FilteredTokens"] = df["Tokens"].apply(remove_stopwords)
+
+# 6. Apply stemming
+df["StemmedTokens"] = df["FilteredTokens"].apply(
+    lambda tokens: [stemmer.stem(word) for word in tokens]
+)
+
+# 7. Apply lemmatization
+df["LemmatizedTokens"] = df["FilteredTokens"].apply(
+    lambda tokens: [lemmatizer.lemmatize(word) for word in tokens]
+)
+
+# 8. Convert tokens back into readable text
+df["ProcessedText"] = df["LemmatizedTokens"].apply(
+    lambda tokens: " ".join(tokens)
+)
+
+# 9. Display every processing stage
+for _, row in df.iterrows():
+    print("\nOriginal:", row["OriginalText"])
+    print("Cleaned:", row["CleanText"])
+    print("Tokens:", row["Tokens"])
+    print("Without stop words:", row["FilteredTokens"])
+    print("Stemmed:", row["StemmedTokens"])
+    print("Lemmatized:", row["LemmatizedTokens"])
+    print("Final text:", row["ProcessedText"])
+
+# 10. Find the most common processed words
+all_words = [
+    word
+    for tokens in df["LemmatizedTokens"]
+    for word in tokens
+]
+
+word_counts = Counter(all_words)
+
+print("\nTop 10 most frequent words:")
+for word, count in word_counts.most_common(10):
+    print(f"{word}: {count}")
+
+# 11. Visualize word frequencies
+top_words = word_counts.most_common(10)
+
+if top_words:
+    words, counts = zip(*top_words)
+
+    plt.figure(figsize=(9, 5))
+    plt.barh(list(words)[::-1], list(counts)[::-1])
+    plt.xlabel("Frequency")
+    plt.title("Most Common Words After Text Processing")
+    plt.tight_layout()
+    plt.show()
+
+# 12. Save the processed dataset
+df.to_csv("processed_reviews.csv", index=False)
+
+print("\nSaved to processed_reviews.csv")

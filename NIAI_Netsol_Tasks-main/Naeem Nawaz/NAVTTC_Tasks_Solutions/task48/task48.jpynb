@@ -1,0 +1,4 @@
+# Pandas - Data Correlations
+
+df = pd.read_csv('sample_data/data.csv')
+df.corr()

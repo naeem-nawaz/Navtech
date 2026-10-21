@@ -1,0 +1,7 @@
+# Pandas Tutorial
+
+import pandas as pd
+
+df = pd.read_csv('sample_data/orders.csv')
+
+print(df.to_string())

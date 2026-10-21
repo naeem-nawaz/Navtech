@@ -1,0 +1,128 @@
+# Predict Whether a Customer Will Buy a Product
+
+# Problem statement
+
+# An online store wants to predict whether a customer will purchase a product based on their age and the number of times they visited the website.
+
+# Your target variable is:
+# - 1 = Customer purchases
+# - 0 = Customer does not purchase
+# Your objectives
+# 1. Create a dataset using Pandas.
+# 2. Separate the features and target.
+# 3. Split the dataset into training and testing sets.
+# 4. Train a DecisionTreeClassifier.
+# 5. Predict whether a new customer will purchase.
+# 6. Evaluate accuracy and display a confusion matrix.
+# 7. Visualize the decision tree.
+# 8. Compare a shallow tree with a deeper tree.
+
+
+import pandas as pd
+import matplotlib.pyplot as plt
+
+from sklearn.model_selection import train_test_split
+from sklearn.tree import DecisionTreeClassifier, plot_tree
+from sklearn.metrics import accuracy_score, confusion_matrix, classification_report
+
+# 1. Create the dataset
+data = {
+    "Age": [
+        18, 22, 25, 28, 32, 35, 40, 45, 50, 55,
+        21, 24, 29, 31, 38, 42, 48, 52, 27, 33,
+        19, 23, 36, 44, 47, 30, 39, 51, 26, 41
+    ],
+    "WebsiteVisits": [
+        1, 2, 3, 2, 5, 6, 3, 2, 1, 2,
+        4, 5, 7, 6, 8, 3, 2, 1, 6, 7,
+        1, 3, 9, 6, 4, 8, 7, 2, 5, 9
+    ],
+    "Purchased": [
+        0, 0, 0, 0, 1, 1, 0, 0, 0, 0,
+        0, 1, 1, 1, 1, 0, 0, 0, 1, 1,
+        0, 0, 1, 1, 0, 1, 1, 0, 1, 1
+    ]
+}
+
+df = pd.DataFrame(data)
+
+print("Customer Dataset:")
+print(df.head())
+
+# 2. Separate features and target
+X = df[["Age", "WebsiteVisits"]]
+y = df["Purchased"]
+
+# 3. Split the dataset
+X_train, X_test, y_train, y_test = train_test_split(
+    X,
+    y,
+    test_size=0.25,
+    random_state=42,
+    stratify=y
+)
+
+# 4. Create and train the decision tree
+model = DecisionTreeClassifier(
+    criterion="gini",
+    max_depth=3,
+    random_state=42
+)
+
+model.fit(X_train, y_train)
+
+# 5. Predict the test data
+y_pred = model.predict(X_test)
+
+# 6. Evaluate the model
+print("\nAccuracy:", round(accuracy_score(y_test, y_pred), 3))
+
+print("\nConfusion Matrix:")
+print(confusion_matrix(y_test, y_pred))
+
+print("\nClassification Report:")
+print(classification_report(y_test, y_pred, zero_division=0))
+
+# 7. Predict for a new customer
+new_customer = pd.DataFrame({
+    "Age": [30],
+    "WebsiteVisits": [7]
+})
+
+prediction = model.predict(new_customer)[0]
+probability = model.predict_proba(new_customer)[0]
+
+print("\nNew Customer Prediction:")
+print("Result:", "PURCHASE" if prediction == 1 else "NO PURCHASE")
+print("Probability of no purchase:", round(probability[0] * 100, 2), "%")
+print("Probability of purchase:", round(probability[1] * 100, 2), "%")
+
+# 8. Visualize the trained decision tree
+plt.figure(figsize=(14, 7))
+
+plot_tree(
+    model,
+    feature_names=X.columns,
+    class_names=["No Purchase", "Purchase"],
+    filled=True,
+    rounded=True
+)
+
+plt.title("Customer Purchase Decision Tree")
+plt.show()
+
+# 9. Compare shallow and deeper trees
+for depth in [1, 3, 10]:
+    tree_model = DecisionTreeClassifier(
+        max_depth=depth,
+        random_state=42
+    )
+
+    tree_model.fit(X_train, y_train)
+    predictions = tree_model.predict(X_test)
+
+    print(
+        f"Depth {depth} | "
+        f"Train accuracy: {tree_model.score(X_train, y_train):.2f} | "
+        f"Test accuracy: {accuracy_score(y_test, predictions):.2f}"
+    )

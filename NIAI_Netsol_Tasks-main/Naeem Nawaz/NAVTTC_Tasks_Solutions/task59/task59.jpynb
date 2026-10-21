@@ -1,0 +1,129 @@
+# Compare Machine Learning Loss Functions
+
+# Task: Predict house rental prices and compare loss functions
+# A property company wants to predict monthly rent in thousands of Pakistani rupees using a property's size. You will train three regression models with different loss functions and compare their predictions.
+
+# Your objectives:
+# - Understand how MSE, MAE, and Huber loss respond to prediction errors.
+# - Train models using each loss function.
+# - Compare their performance, especially when the dataset contains an unusually expensive property.
+
+
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+
+from scipy.optimize import minimize
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import mean_squared_error, mean_absolute_error
+
+# 1. Generate synthetic property data
+np.random.seed(42)
+
+size = np.random.uniform(30, 150, 100)
+rent = 20 + 0.45 * size + np.random.normal(0, 5, 100)
+
+df = pd.DataFrame({
+    "Size": size,
+    "Rent": rent
+})
+
+# 2. Split normal data into training and testing sets
+X_train, X_test, y_train, y_test = train_test_split(
+    df["Size"].values,
+    df["Rent"].values,
+    test_size=0.2,
+    random_state=42
+)
+
+# 3. Add an unusually expensive property to training data
+# This helps demonstrate how losses handle outliers.
+X_train = np.append(X_train, 145)
+y_train = np.append(y_train, 180)
+
+# 4. Define three loss functions
+def mse_loss(params, X, y):
+    m, b = params
+    predictions = m * X + b
+    return np.mean((y - predictions) ** 2)
+
+def mae_loss(params, X, y):
+    m, b = params
+    predictions = m * X + b
+    return np.mean(np.abs(y - predictions))
+
+def huber_loss(params, X, y, delta=10):
+    m, b = params
+    errors = y - (m * X + b)
+    abs_errors = np.abs(errors)
+
+    losses = np.where(
+        abs_errors <= delta,
+        0.5 * errors**2,
+        delta * (abs_errors - 0.5 * delta)
+    )
+
+    return np.mean(losses)
+
+# 5. Train a model for each loss function
+loss_functions = {
+    "MSE": mse_loss,
+    "MAE": mae_loss,
+    "Huber": huber_loss
+}
+
+models = {}
+
+for name, loss_function in loss_functions.items():
+    result = minimize(
+        loss_function,
+        x0=[0.45, 20],
+        args=(X_train, y_train),
+        method="Nelder-Mead"
+    )
+
+    models[name] = result.x
+    print(f"{name} parameters: slope={result.x[0]:.3f}, "
+          f"intercept={result.x[1]:.3f}")
+
+# 6. Evaluate all models on the same test set
+results = []
+
+for name, (m, b) in models.items():
+    predictions = m * X_test + b
+
+    results.append({
+        "Loss Used for Training": name,
+        "Test MSE": mean_squared_error(y_test, predictions),
+        "Test MAE": mean_absolute_error(y_test, predictions)
+    })
+
+results_df = pd.DataFrame(results)
+print("\nTest Results:")
+print(results_df.round(2).to_string(index=False))
+
+# 7. Plot training data and fitted lines
+plt.figure(figsize=(10, 6))
+
+plt.scatter(X_train, y_train, label="Training data")
+plt.scatter(X_test, y_test, label="Test data", marker="x")
+
+x_line = np.linspace(25, 155, 200)
+
+for name, (m, b) in models.items():
+    plt.plot(x_line, m * x_line + b, label=f"{name} model")
+
+plt.xlabel("Property Size (square metres)")
+plt.ylabel("Monthly Rent (thousands of PKR)")
+plt.title("Comparing Regression Loss Functions")
+plt.legend()
+plt.grid(True)
+plt.show()
+
+# 8. Predict rent for a new property
+new_size = 100
+
+print("\nPredicted monthly rent for a 100 m² property:")
+for name, (m, b) in models.items():
+    predicted_rent = m * new_size + b
+    print(f"{name}: PKR {predicted_rent:.2f} thousand")

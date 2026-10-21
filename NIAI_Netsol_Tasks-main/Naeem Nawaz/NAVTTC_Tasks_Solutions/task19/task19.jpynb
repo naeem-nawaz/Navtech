@@ -1,0 +1,4 @@
+words = ['The', 'Big', 'Bang', 'Theory']
+
+for index, value in enumerate(words):
+    print(index, value)

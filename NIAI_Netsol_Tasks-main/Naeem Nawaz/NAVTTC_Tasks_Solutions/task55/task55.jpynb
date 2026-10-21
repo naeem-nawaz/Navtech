@@ -1,0 +1,114 @@
+# Analyze and Forecast Daily Sales
+
+# Problem statement
+
+# A shop in Lahore records its daily sales. The manager wants to understand sales trends, identify the best-performing month, and compare daily sales with a weekly average.
+
+# Your objectives
+# 1. Create a dataset with dates and daily sales.
+# 2. Convert the date column to a Pandas datetime format.
+# 3. Set the date as the DataFrame index.
+# 4. Resample daily sales into monthly totals.
+# 5. Calculate a 7-day rolling average.
+# 6. Identify the month with the highest sales.
+# 7. Plot daily sales and monthly totals.
+
+
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+
+# 1. Create sample daily sales data
+np.random.seed(42)
+
+dates = pd.date_range(
+    start="2026-01-01",
+    periods=90,
+    freq="D"
+)
+
+# Simulate sales with a gradual trend, weekly pattern, and random noise
+trend = np.linspace(5000, 7500, 90)
+weekly_pattern = np.array([300, 200, 100, 0, 100, 700, 900])
+weekly_sales = np.tile(weekly_pattern, 13)[:90]
+noise = np.random.normal(0, 400, 90)
+
+sales = np.maximum(
+    0,
+    trend + weekly_sales + noise
+).round(2)
+
+df = pd.DataFrame({
+    "Date": dates,
+    "Sales": sales
+})
+
+print("First five rows:")
+print(df.head())
+
+# 2. Convert Date column to datetime
+df["Date"] = pd.to_datetime(df["Date"])
+
+# 3. Set Date as the index
+df = df.set_index("Date")
+
+print("\nIndex type:")
+print(type(df.index))
+
+# 4. Calculate monthly sales totals
+monthly_sales = df["Sales"].resample("MS").sum()
+
+print("\nMonthly Sales:")
+print(monthly_sales)
+
+# 5. Calculate 7-day rolling average
+df["RollingAverage"] = df["Sales"].rolling(
+    window=7
+).mean()
+
+print("\nDaily sales with rolling average:")
+print(df.head(10))
+
+# 6. Find the month with highest sales
+best_month = monthly_sales.idxmax()
+highest_sales = monthly_sales.max()
+
+print("\nBest month:", best_month.strftime("%B %Y"))
+print("Total sales:", round(highest_sales, 2))
+
+# 7. Plot daily sales and rolling average
+plt.figure(figsize=(12, 5))
+
+plt.plot(
+    df.index,
+    df["Sales"],
+    label="Daily Sales",
+    alpha=0.6
+)
+
+plt.plot(
+    df.index,
+    df["RollingAverage"],
+    label="7-Day Rolling Average",
+    linewidth=2
+)
+
+plt.title("Daily Sales and 7-Day Rolling Average")
+plt.xlabel("Date")
+plt.ylabel("Sales")
+plt.legend()
+plt.grid(True, alpha=0.3)
+plt.tight_layout()
+plt.show()
+
+# 8. Plot monthly sales totals
+monthly_sales.plot(
+    kind="bar",
+    figsize=(9, 5),
+    title="Monthly Sales Totals"
+)
+
+plt.xlabel("Month")
+plt.ylabel("Total Sales")
+plt.tight_layout()
+plt.show()

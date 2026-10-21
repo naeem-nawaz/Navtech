@@ -1,0 +1,145 @@
+# Classify Breast Tumors as Benign or Malignant
+
+# Problem statement
+
+# Build an SVM model that classifies tumors using numerical measurements from the Wisconsin Breast Cancer dataset built into Scikit-learn.
+# - 0 = Malignant
+# - 1 = Benign
+# Your objectives
+# 1. Load the built-in dataset.
+# 2. Split it into training and testing sets.
+# 3. Scale the features using StandardScaler.
+# 4. Train a linear SVM and an RBF Kernel SVM.
+# 5. Compare accuracy, precision, recall, and confusion matrices.
+# 6. Predict the class of a new sample.
+# 7. Experiment with the C and gamma parameters.
+
+
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+from sklearn.datasets import load_breast_cancer
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.pipeline import make_pipeline
+from sklearn.svm import SVC
+from sklearn.metrics import (
+    accuracy_score,
+    confusion_matrix,
+    classification_report
+)
+
+# 1. Load the dataset
+cancer = load_breast_cancer()
+
+X = pd.DataFrame(cancer.data, columns=cancer.feature_names)
+y = cancer.target
+
+print("Dataset shape:", X.shape)
+print("\nTarget classes:", cancer.target_names)
+print("\nFirst five rows:")
+print(X.head())
+
+# 2. Split into training and testing sets
+X_train, X_test, y_train, y_test = train_test_split(
+    X,
+    y,
+    test_size=0.2,
+    random_state=42,
+    stratify=y
+)
+
+# 3. Create and train two SVM models
+models = {
+    "Linear SVM": make_pipeline(
+        StandardScaler(),
+        SVC(kernel="linear", C=1)
+    ),
+    "RBF Kernel SVM": make_pipeline(
+        StandardScaler(),
+        SVC(kernel="rbf", C=1, gamma="scale")
+    ),
+    "Polynomial Kernel SVM": make_pipeline(
+        StandardScaler(),
+        SVC(kernel="poly", degree=3, C=1)
+    )
+}
+
+# 4. Train and evaluate each model
+results = []
+
+for name, model in models.items():
+    model.fit(X_train, y_train)
+    y_pred = model.predict(X_test)
+
+    accuracy = accuracy_score(y_test, y_pred)
+
+    results.append({
+        "Model": name,
+        "Accuracy": round(accuracy, 4)
+    })
+
+    print(f"\n{'=' * 40}")
+    print(name)
+    print("Accuracy:", round(accuracy, 4))
+
+    print("\nClassification Report:")
+    print(
+        classification_report(
+            y_test,
+            y_pred,
+            target_names=cancer.target_names,
+            zero_division=0
+        )
+    )
+
+    print("Confusion Matrix:")
+    print(confusion_matrix(y_test, y_pred))
+
+# 5. Compare model accuracies
+results_df = pd.DataFrame(results)
+
+print("\nModel Comparison:")
+print(results_df.to_string(index=False))
+
+# 6. Visualize the comparison
+plt.figure(figsize=(9, 5))
+
+sns.barplot(data=results_df, x="Model", y="Accuracy")
+
+plt.ylim(0, 1)
+plt.title("SVM Kernel Comparison")
+plt.ylabel("Test Accuracy")
+plt.xticks(rotation=15)
+plt.tight_layout()
+plt.show()
+
+# 7. Visualize the RBF model's confusion matrix
+rbf_model = models["RBF Kernel SVM"]
+rbf_predictions = rbf_model.predict(X_test)
+
+cm = confusion_matrix(y_test, rbf_predictions)
+
+sns.heatmap(
+    cm,
+    annot=True,
+    fmt="d",
+    cmap="Blues",
+    xticklabels=cancer.target_names,
+    yticklabels=cancer.target_names
+)
+
+plt.xlabel("Predicted Class")
+plt.ylabel("Actual Class")
+plt.title("RBF SVM Confusion Matrix")
+plt.show()
+
+# 8. Predict a sample from the test set
+sample = X_test.iloc[[0]]
+actual_class = y_test[X_test.index.get_loc(sample.index[0])]
+prediction = rbf_model.predict(sample)[0]
+
+print("\nSample Prediction")
+print("Actual:", cancer.target_names[actual_class])
+print("Predicted:", cancer.target_names[prediction])

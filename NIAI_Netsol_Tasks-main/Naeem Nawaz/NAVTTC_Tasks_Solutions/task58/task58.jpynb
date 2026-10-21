@@ -1,0 +1,157 @@
+# Build a Feedforward Neural Network
+
+# Task: Predict whether a customer will subscribe
+# A bank wants to predict whether a customer will subscribe to a savings plan based on three features:
+# - Age: Customer's age.
+# - Monthly income: Income in thousands of rupees.
+# - Previous contacts: Number of previous contacts by the bank.
+# Your job is to build a feedforward neural network that predicts Subscribe (1) or Not Subscribe (0).
+
+# Requirements: Create a dataset, train an FFNN, evaluate its performance, and predict for a new customer.
+
+
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import (
+    accuracy_score,
+    confusion_matrix,
+    classification_report
+)
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Input, Dense
+from tensorflow.keras.callbacks import EarlyStopping
+
+# 1. Create a synthetic dataset
+np.random.seed(42)
+
+n = 1000
+
+age = np.random.randint(18, 66, n)
+income = np.random.randint(25, 201, n)  # thousands of PKR
+previous_contacts = np.random.randint(0, 11, n)
+
+# Create a probability influenced by the features
+score = (
+    -2.0
+    + 0.035 * (age - 35)
+    + 0.018 * (income - 75)
+    + 0.30 * previous_contacts
+)
+
+probability = 1 / (1 + np.exp(-score))
+subscribe = (np.random.random(n) < probability).astype(int)
+
+df = pd.DataFrame({
+    "Age": age,
+    "MonthlyIncome": income,
+    "PreviousContacts": previous_contacts,
+    "Subscribe": subscribe
+})
+
+print(df.head())
+print("\nClass distribution:")
+print(df["Subscribe"].value_counts())
+
+# 2. Separate features and target
+X = df[["Age", "MonthlyIncome", "PreviousContacts"]]
+y = df["Subscribe"]
+
+# 3. Split the data
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y,
+    test_size=0.20,
+    random_state=42,
+    stratify=y
+)
+
+# 4. Scale the features
+scaler = StandardScaler()
+
+X_train_scaled = scaler.fit_transform(X_train)
+X_test_scaled = scaler.transform(X_test)
+
+# 5. Build the feedforward neural network
+model = Sequential([
+    Input(shape=(3,)),
+    Dense(16, activation="relu"),
+    Dense(8, activation="relu"),
+    Dense(1, activation="sigmoid")
+])
+
+# 6. Configure training
+model.compile(
+    optimizer="adam",
+    loss="binary_crossentropy",
+    metrics=["accuracy"]
+)
+
+# Stop training when validation loss stops improving
+early_stop = EarlyStopping(
+    monitor="val_loss",
+    patience=8,
+    restore_best_weights=True
+)
+
+# 7. Train the model
+history = model.fit(
+    X_train_scaled,
+    y_train,
+    epochs=100,
+    batch_size=32,
+    validation_split=0.2,
+    callbacks=[early_stop],
+    verbose=1
+)
+
+# 8. Evaluate the model
+loss, keras_accuracy = model.evaluate(
+    X_test_scaled, y_test, verbose=0
+)
+
+print(f"\nTest Loss: {loss:.4f}")
+print(f"Keras Test Accuracy: {keras_accuracy:.4f}")
+
+# 9. Make predictions
+probabilities = model.predict(X_test_scaled, verbose=0).ravel()
+predictions = (probabilities >= 0.5).astype(int)
+
+print("\nConfusion Matrix:")
+print(confusion_matrix(y_test, predictions))
+
+print("\nClassification Report:")
+print(classification_report(y_test, predictions, zero_division=0))
+
+# 10. Plot training and validation loss
+plt.figure(figsize=(8, 5))
+plt.plot(history.history["loss"], label="Training Loss")
+plt.plot(history.history["val_loss"], label="Validation Loss")
+plt.xlabel("Epoch")
+plt.ylabel("Binary Cross-Entropy Loss")
+plt.title("Training vs Validation Loss")
+plt.legend()
+plt.show()
+
+# 11. Predict for a new customer
+new_customer = pd.DataFrame({
+    "Age": [30],
+    "MonthlyIncome": [90],
+    "PreviousContacts": [4]
+})
+
+new_customer_scaled = scaler.transform(new_customer)
+subscription_probability = model.predict(
+    new_customer_scaled, verbose=0
+)[0][0]
+
+prediction = int(subscription_probability >= 0.5)
+
+print("\nNew Customer Prediction")
+print(f"Subscription probability: {subscription_probability:.2%}")
+print(
+    "Prediction:",
+    "Will Subscribe" if prediction == 1 else "Will Not Subscribe"
+)

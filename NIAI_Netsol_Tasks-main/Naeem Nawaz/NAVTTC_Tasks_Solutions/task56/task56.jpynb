@@ -1,0 +1,151 @@
+# Build a Neural Network from Scratch
+
+# Problem statement
+
+# A small online store wants to predict whether a customer will purchase a product based on two features:
+# - Hours: hours spent browsing the store.
+# - Pages: number of product pages visited.
+# Your task is to build a neural network with one hidden layer that predicts:
+# - 1 = Purchase
+# - 0 = No purchase
+# Requirements
+# 1. Use NumPy to initialize weights and biases.
+# 2. Implement the sigmoid activation function.
+# 3. Perform forward propagation.
+# 4. Calculate binary cross-entropy loss.
+# 5. Implement backpropagation and gradient descent manually.
+# 6. Train the network for multiple epochs.
+# 7. Plot the loss and test predictions.
+# You must implement the learning algorithm yourself, without using Scikit-learn, TensorFlow, or PyTorch to train the model.
+
+
+import numpy as np
+import matplotlib.pyplot as plt
+
+# 1. Create the dataset
+# Features: browsing hours and product pages visited
+X = np.array([
+    [0.1, 0.1],
+    [0.2, 0.2],
+    [0.1, 0.4],
+    [0.3, 0.2],
+    [0.2, 0.5],
+    [0.4, 0.4],
+    [0.5, 0.3],
+    [0.3, 0.6],
+    [0.6, 0.5],
+    [0.7, 0.6],
+    [0.8, 0.7],
+    [0.9, 0.8],
+    [0.6, 0.8],
+    [0.8, 0.9],
+    [0.9, 0.5],
+    [0.5, 0.9]
+])
+
+# 0 = No purchase, 1 = Purchase
+y = np.array([
+    [0], [0], [0], [0],
+    [0], [0], [0], [0],
+    [1], [1], [1], [1],
+    [1], [1], [1], [1]
+])
+
+# 2. Define the sigmoid activation function
+def sigmoid(z):
+    z = np.clip(z, -500, 500)
+    return 1 / (1 + np.exp(-z))
+
+# 3. Initialize network parameters
+np.random.seed(42)
+
+input_neurons = 2
+hidden_neurons = 4
+output_neurons = 1
+
+W1 = np.random.randn(input_neurons, hidden_neurons) * 0.5
+b1 = np.zeros((1, hidden_neurons))
+
+W2 = np.random.randn(hidden_neurons, output_neurons) * 0.5
+b2 = np.zeros((1, output_neurons))
+
+learning_rate = 1.0
+epochs = 5000
+losses = []
+
+# 4. Train the neural network
+for epoch in range(epochs):
+
+    # Forward propagation
+    Z1 = X @ W1 + b1
+    A1 = sigmoid(Z1)
+
+    Z2 = A1 @ W2 + b2
+    A2 = sigmoid(Z2)
+
+    # Binary cross-entropy loss
+    epsilon = 1e-8
+    loss = -np.mean(
+        y * np.log(A2 + epsilon)
+        + (1 - y) * np.log(1 - A2 + epsilon)
+    )
+
+    losses.append(loss)
+
+    # Backpropagation: output layer
+    dZ2 = A2 - y
+    dW2 = (A1.T @ dZ2) / len(X)
+    db2 = np.mean(dZ2, axis=0, keepdims=True)
+
+    # Backpropagation: hidden layer
+    dA1 = dZ2 @ W2.T
+    dZ1 = dA1 * A1 * (1 - A1)
+
+    dW1 = (X.T @ dZ1) / len(X)
+    db1 = np.mean(dZ1, axis=0, keepdims=True)
+
+    # Update weights and biases
+    W2 -= learning_rate * dW2
+    b2 -= learning_rate * db2
+
+    W1 -= learning_rate * dW1
+    b1 -= learning_rate * db1
+
+# 5. Make predictions after training
+A1 = sigmoid(X @ W1 + b1)
+probabilities = sigmoid(A1 @ W2 + b2)
+
+predictions = (probabilities >= 0.5).astype(int)
+
+accuracy = np.mean(predictions == y)
+
+print("Final loss:", round(losses[-1], 4))
+print("Training accuracy:", round(accuracy * 100, 2), "%")
+
+print("\nActual vs Predicted:")
+for i in range(len(X)):
+    print(
+        f"Customer {i + 1}: "
+        f"Actual={y[i, 0]}, "
+        f"Probability={probabilities[i, 0]:.3f}, "
+        f"Predicted={predictions[i, 0]}"
+    )
+
+# 6. Plot the loss curve
+plt.figure(figsize=(9, 5))
+plt.plot(losses)
+plt.title("Neural Network Training Loss")
+plt.xlabel("Epoch")
+plt.ylabel("Binary Cross-Entropy Loss")
+plt.grid(True, alpha=0.3)
+plt.show()
+
+# 7. Test a new customer
+new_customer = np.array([[0.75, 0.80]])
+
+hidden = sigmoid(new_customer @ W1 + b1)
+probability = sigmoid(hidden @ W2 + b2)[0, 0]
+
+print("\nNew customer:")
+print("Purchase probability:", round(probability * 100, 2), "%")
+print("Prediction:", "PURCHASE" if probability >= 0.5 else "NO PURCHASE")

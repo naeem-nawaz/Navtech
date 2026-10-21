@@ -1,0 +1,3 @@
+a = ["Geeks", "for", "Geeks"]
+for i in a:
+    print(i)

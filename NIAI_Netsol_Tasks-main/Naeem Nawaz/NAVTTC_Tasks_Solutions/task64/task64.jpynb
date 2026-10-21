@@ -1,0 +1,333 @@
+# Image Classification with CNNs — Compare Models and Datasets
+
+# You'll train two models on the CIFAR-10 dataset, which contains 32 × 32 color images across 10 classes, such as cars, birds, cats, and dogs.
+
+# Your goal is to find out whether a CNN performs better than a fully connected neural network on image classification.
+
+
+# ============================================================
+# COMPLETE IMAGE CLASSIFICATION PROJECT: CIFAR-10
+# Compare Fully Connected NN vs CNN
+# ============================================================
+
+import numpy as np
+import matplotlib.pyplot as plt
+import tensorflow as tf
+
+from tensorflow.keras.datasets import cifar10
+from tensorflow.keras import Sequential
+from tensorflow.keras.layers import (
+    Input, Flatten, Dense, Dropout,
+    Conv2D, MaxPooling2D, GlobalAveragePooling2D
+)
+from tensorflow.keras.callbacks import EarlyStopping
+from sklearn.metrics import (
+    accuracy_score,
+    classification_report,
+    ConfusionMatrixDisplay
+)
+
+# Make results more reproducible
+tf.keras.utils.set_random_seed(42)
+
+# ------------------------------------------------------------
+# 1. LOAD DATASET
+# ------------------------------------------------------------
+
+(X_train, y_train), (X_test, y_test) = cifar10.load_data()
+
+y_train = y_train.flatten()
+y_test = y_test.flatten()
+
+class_names = [
+    "airplane", "automobile", "bird", "cat", "deer",
+    "dog", "frog", "horse", "ship", "truck"
+]
+
+print("Training images:", X_train.shape)
+print("Testing images:", X_test.shape)
+
+# ------------------------------------------------------------
+# 2. PREPROCESS IMAGES
+# ------------------------------------------------------------
+
+X_train = X_train.astype("float32") / 255.0
+X_test = X_test.astype("float32") / 255.0
+
+# Display sample images
+plt.figure(figsize=(10, 5))
+
+for i in range(10):
+    plt.subplot(2, 5, i + 1)
+    plt.imshow(X_train[i])
+    plt.title(class_names[y_train[i]])
+    plt.axis("off")
+
+plt.tight_layout()
+plt.show()
+
+# ------------------------------------------------------------
+# 3. SPLIT TRAINING DATA INTO TRAINING AND VALIDATION SETS
+# ------------------------------------------------------------
+
+X_fit = X_train[:-5000]
+y_fit = y_train[:-5000]
+
+X_val = X_train[-5000:]
+y_val = y_train[-5000:]
+
+print("Training subset:", X_fit.shape)
+print("Validation subset:", X_val.shape)
+
+# ------------------------------------------------------------
+# 4. BUILD FULLY CONNECTED NEURAL NETWORK
+# ------------------------------------------------------------
+
+mlp_model = Sequential([
+    Input(shape=(32, 32, 3)),
+    Flatten(),
+    Dense(256, activation="relu"),
+    Dropout(0.3),
+    Dense(128, activation="relu"),
+    Dense(10, activation="softmax")
+])
+
+mlp_model.compile(
+    optimizer="adam",
+    loss="sparse_categorical_crossentropy",
+    metrics=["accuracy"]
+)
+
+print("\nFULLY CONNECTED MODEL")
+mlp_model.summary()
+
+# ------------------------------------------------------------
+# 5. TRAIN FULLY CONNECTED MODEL
+# ------------------------------------------------------------
+
+early_stop_mlp = EarlyStopping(
+    monitor="val_loss",
+    patience=3,
+    restore_best_weights=True
+)
+
+mlp_history = mlp_model.fit(
+    X_fit,
+    y_fit,
+    epochs=10,
+    batch_size=128,
+    validation_data=(X_val, y_val),
+    callbacks=[early_stop_mlp],
+    verbose=1
+)
+
+# ------------------------------------------------------------
+# 6. BUILD CNN MODEL
+# ------------------------------------------------------------
+
+cnn_model = Sequential([
+    Input(shape=(32, 32, 3)),
+
+    Conv2D(32, (3, 3), padding="same", activation="relu"),
+    MaxPooling2D((2, 2)),
+
+    Conv2D(64, (3, 3), padding="same", activation="relu"),
+    MaxPooling2D((2, 2)),
+
+    Conv2D(128, (3, 3), padding="same", activation="relu"),
+    GlobalAveragePooling2D(),
+
+    Dense(128, activation="relu"),
+    Dropout(0.3),
+
+    Dense(10, activation="softmax")
+])
+
+cnn_model.compile(
+    optimizer="adam",
+    loss="sparse_categorical_crossentropy",
+    metrics=["accuracy"]
+)
+
+print("\nCNN MODEL")
+cnn_model.summary()
+
+# ------------------------------------------------------------
+# 7. TRAIN CNN MODEL
+# ------------------------------------------------------------
+
+early_stop_cnn = EarlyStopping(
+    monitor="val_loss",
+    patience=3,
+    restore_best_weights=True
+)
+
+cnn_history = cnn_model.fit(
+    X_fit,
+    y_fit,
+    epochs=10,
+    batch_size=128,
+    validation_data=(X_val, y_val),
+    callbacks=[early_stop_cnn],
+    verbose=1
+)
+
+# ------------------------------------------------------------
+# 8. EVALUATE BOTH MODELS ON THE SAME TEST SET
+# ------------------------------------------------------------
+
+mlp_test_loss, mlp_test_accuracy = mlp_model.evaluate(
+    X_test, y_test, verbose=0
+)
+
+cnn_test_loss, cnn_test_accuracy = cnn_model.evaluate(
+    X_test, y_test, verbose=0
+)
+
+print("\n========== FINAL RESULTS ==========")
+print(f"MLP test accuracy: {mlp_test_accuracy:.2%}")
+print(f"MLP test loss:     {mlp_test_loss:.4f}")
+print(f"CNN test accuracy: {cnn_test_accuracy:.2%}")
+print(f"CNN test loss:     {cnn_test_loss:.4f}")
+
+print(f"\nMLP trainable parameters: {mlp_model.count_params():,}")
+print(f"CNN trainable parameters: {cnn_model.count_params():,}")
+
+# ------------------------------------------------------------
+# 9. PLOT MODEL ACCURACY COMPARISON
+# ------------------------------------------------------------
+
+plt.figure(figsize=(8, 5))
+
+plt.bar(
+    ["Fully Connected NN", "CNN"],
+    [mlp_test_accuracy, cnn_test_accuracy]
+)
+
+plt.ylabel("Test Accuracy")
+plt.title("CIFAR-10: MLP vs CNN")
+plt.ylim(0, 1)
+plt.tight_layout()
+plt.show()
+
+# ------------------------------------------------------------
+# 10. PLOT VALIDATION ACCURACY DURING TRAINING
+# ------------------------------------------------------------
+
+plt.figure(figsize=(9, 5))
+
+plt.plot(
+    mlp_history.history["val_accuracy"],
+    label="MLP validation accuracy"
+)
+
+plt.plot(
+    cnn_history.history["val_accuracy"],
+    label="CNN validation accuracy"
+)
+
+plt.xlabel("Epoch")
+plt.ylabel("Validation Accuracy")
+plt.title("Validation Accuracy by Epoch")
+plt.legend()
+plt.tight_layout()
+plt.show()
+
+# ------------------------------------------------------------
+# 11. DETAILED CNN CLASSIFICATION REPORT
+# ------------------------------------------------------------
+
+cnn_probabilities = cnn_model.predict(X_test, verbose=0)
+cnn_predictions = np.argmax(cnn_probabilities, axis=1)
+
+print("\nCNN CLASSIFICATION REPORT")
+print(
+    classification_report(
+        y_test,
+        cnn_predictions,
+        labels=np.arange(10),
+        target_names=class_names,
+        zero_division=0
+    )
+)
+
+# ------------------------------------------------------------
+# 12. CONFUSION MATRIX
+# ------------------------------------------------------------
+
+ConfusionMatrixDisplay.from_predictions(
+    y_test,
+    cnn_predictions,
+    labels=np.arange(10),
+    display_labels=class_names,
+    xticks_rotation=45,
+    cmap="Blues"
+)
+
+plt.title("CNN Confusion Matrix")
+plt.tight_layout()
+plt.show()
+
+# ------------------------------------------------------------
+# 13. PREDICT AND DISPLAY 10 TEST IMAGES
+# ------------------------------------------------------------
+
+plt.figure(figsize=(12, 6))
+
+for i in range(10):
+    image = X_test[i]
+    actual = y_test[i]
+    predicted = cnn_predictions[i]
+    confidence = cnn_probabilities[i][predicted]
+
+    plt.subplot(2, 5, i + 1)
+    plt.imshow(image)
+
+    color = "green" if actual == predicted else "red"
+
+    plt.title(
+        f"Pred: {class_names[predicted]}\n"
+        f"Actual: {class_names[actual]}\n"
+        f"Confidence: {confidence:.0%}",
+        color=color,
+        fontsize=9
+    )
+
+    plt.axis("off")
+
+plt.tight_layout()
+plt.show()
+
+# ------------------------------------------------------------
+# 14. PREDICT A SINGLE IMAGE
+# ------------------------------------------------------------
+
+index = 25
+
+image = X_test[index]
+actual_label = y_test[index]
+
+probabilities = cnn_model.predict(
+    image[np.newaxis, ...],
+    verbose=0
+)[0]
+
+predicted_label = int(np.argmax(probabilities))
+
+print("\n========== SINGLE IMAGE PREDICTION ==========")
+print("Actual class:", class_names[actual_label])
+print("Predicted class:", class_names[predicted_label])
+print(f"Confidence: {probabilities[predicted_label]:.2%}")
+
+print("\nProbability for every class:")
+
+for name, probability in zip(class_names, probabilities):
+    print(f"{name}: {probability:.2%}")
+
+# ------------------------------------------------------------
+# 15. SAVE THE TRAINED CNN MODEL
+# ------------------------------------------------------------
+
+cnn_model.save("cifar10_cnn.keras")
+
+print("\nSaved CNN model to cifar10_cnn.keras")

@@ -1,0 +1,148 @@
+# Build a Convolutional Neural Network (CNN)
+
+# Scenario: Classify handwritten digits
+# Build a CNN that recognizes handwritten digits from 0 to 9 using the MNIST dataset.
+
+# Your model must:
+# - Load and preprocess image data.
+# - Build convolutional and pooling layers.
+# - Train the CNN.
+# - Evaluate accuracy on unseen test images.
+# - Predict digits and display example results.
+
+
+import numpy as np
+import matplotlib.pyplot as plt
+import tensorflow as tf
+
+from tensorflow.keras import Sequential
+from tensorflow.keras.layers import (
+    Input, Conv2D, MaxPooling2D,
+    Flatten, Dense, Dropout
+)
+from sklearn.metrics import classification_report, confusion_matrix
+
+# 1. Load MNIST dataset
+(X_train, y_train), (X_test, y_test) = (
+    tf.keras.datasets.mnist.load_data()
+)
+
+print("Training images:", X_train.shape)
+print("Testing images:", X_test.shape)
+
+# 2. Normalize pixel values from 0-255 to 0-1
+X_train = X_train.astype("float32") / 255.0
+X_test = X_test.astype("float32") / 255.0
+
+# CNN expects images with shape (height, width, channels)
+X_train = X_train[..., np.newaxis]
+X_test = X_test[..., np.newaxis]
+
+print("CNN input shape:", X_train.shape)
+
+# 3. Build the CNN
+model = Sequential([
+    Input(shape=(28, 28, 1)),
+
+    # Learn local patterns such as edges and curves
+    Conv2D(32, kernel_size=(3, 3), activation="relu"),
+
+    # Reduce spatial dimensions
+    MaxPooling2D(pool_size=(2, 2)),
+
+    # Learn more complex patterns
+    Conv2D(64, kernel_size=(3, 3), activation="relu"),
+    MaxPooling2D(pool_size=(2, 2)),
+
+    # Convert feature maps into a vector
+    Flatten(),
+
+    # Classify the extracted features
+    Dense(64, activation="relu"),
+    Dropout(0.3),
+
+    # Ten output probabilities: digits 0 through 9
+    Dense(10, activation="softmax")
+])
+
+model.summary()
+
+# 4. Configure training
+model.compile(
+    optimizer="adam",
+    loss="sparse_categorical_crossentropy",
+    metrics=["accuracy"]
+)
+
+# 5. Train the model
+history = model.fit(
+    X_train,
+    y_train,
+    epochs=5,
+    batch_size=64,
+    validation_split=0.1,
+    verbose=1
+)
+
+# 6. Evaluate on unseen test images
+test_loss, test_accuracy = model.evaluate(
+    X_test, y_test, verbose=0
+)
+
+print(f"\nTest accuracy: {test_accuracy:.4f}")
+print(f"Test loss: {test_loss:.4f}")
+
+# 7. Predict the test images
+probabilities = model.predict(X_test, verbose=0)
+predictions = np.argmax(probabilities, axis=1)
+
+print("\nClassification report:")
+print(classification_report(
+    y_test,
+    predictions,
+    digits=4,
+    zero_division=0
+))
+
+print("Confusion matrix:")
+print(confusion_matrix(y_test, predictions))
+
+# 8. Plot training and validation accuracy
+plt.figure(figsize=(8, 5))
+plt.plot(history.history["accuracy"], label="Training accuracy")
+plt.plot(history.history["val_accuracy"], label="Validation accuracy")
+plt.xlabel("Epoch")
+plt.ylabel("Accuracy")
+plt.title("CNN Training Performance")
+plt.legend()
+plt.show()
+
+# 9. Display sample predictions
+plt.figure(figsize=(12, 5))
+
+for i in range(10):
+    plt.subplot(2, 5, i + 1)
+    plt.imshow(X_test[i].squeeze(), cmap="gray")
+
+    predicted_digit = predictions[i]
+    actual_digit = y_test[i]
+
+    plt.title(
+        f"Pred: {predicted_digit}\nActual: {actual_digit}"
+    )
+    plt.axis("off")
+
+plt.tight_layout()
+plt.show()
+
+# 10. Predict a single image
+index = 100
+single_image = X_test[index:index + 1]
+
+single_probabilities = model.predict(single_image, verbose=0)[0]
+predicted_digit = np.argmax(single_probabilities)
+
+print("\nSingle-image prediction:")
+print("Predicted digit:", predicted_digit)
+print("Actual digit:", y_test[index])
+print("Confidence:", f"{single_probabilities[predicted_digit]:.2%}")

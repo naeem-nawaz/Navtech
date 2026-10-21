@@ -1,0 +1,7 @@
+# Pandas - Analyzing DataFrames
+
+import pandas as pd
+
+df = pd.read_csv('sample_data/orders.csv')
+
+print(df.head(10))

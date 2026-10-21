@@ -1,0 +1,173 @@
+# Build an NLP Text Analysis System
+
+# Task: Analyze customer reviews automatically
+# A Pakistani e-commerce business receives customer reviews and wants a Python program that can:
+# - Clean and tokenize review text.
+# - Remove common stop words.
+# - Perform stemming and lemmatization.
+# - Identify frequently used words.
+# - Convert reviews into numerical features using TF-IDF.
+# - Train a machine-learning model to classify reviews as Positive or Negative.
+# This task takes you beyond text cleaning into a complete NLP pipeline.
+
+
+import re
+import nltk
+import pandas as pd
+import matplotlib.pyplot as plt
+
+from nltk.tokenize import wordpunct_tokenize
+from nltk.stem import PorterStemmer, WordNetLemmatizer
+from sklearn.feature_extraction.text import ENGLISH_STOP_WORDS, TfidfVectorizer
+from sklearn.model_selection import train_test_split
+from sklearn.pipeline import Pipeline
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import (
+    accuracy_score,
+    classification_report,
+    ConfusionMatrixDisplay
+)
+
+# Download resources required for lemmatization
+nltk.download("wordnet", quiet=True)
+nltk.download("omw-1.4", quiet=True)
+
+# 1. Create a sample customer-review dataset
+reviews = [
+    ("Excellent product, great quality and fast delivery", "Positive"),
+    ("I love this item, it works perfectly", "Positive"),
+    ("Very good quality for the price", "Positive"),
+    ("Amazing service and helpful staff", "Positive"),
+    ("The product is fantastic and reliable", "Positive"),
+    ("Fast shipping and excellent packaging", "Positive"),
+    ("Really happy with this purchase", "Positive"),
+    ("Wonderful product, highly recommended", "Positive"),
+    ("Great value and very useful", "Positive"),
+    ("The quality is excellent and delivery was quick", "Positive"),
+    ("Superb product, I am very satisfied", "Positive"),
+    ("Works well and arrived on time", "Positive"),
+    ("Terrible product, poor quality", "Negative"),
+    ("I hate this item, it broke immediately", "Negative"),
+    ("Very bad experience and slow delivery", "Negative"),
+    ("The product is useless and unreliable", "Negative"),
+    ("Awful service, nobody helped me", "Negative"),
+    ("Poor packaging and damaged product", "Negative"),
+    ("Waste of money, not recommended", "Negative"),
+    ("The quality is horrible and disappointing", "Negative"),
+    ("I am unhappy with this purchase", "Negative"),
+    ("Late shipping and terrible customer service", "Negative"),
+    ("This product does not work properly", "Negative"),
+    ("Bad quality and not worth the price", "Negative")
+]
+
+df = pd.DataFrame(reviews, columns=["Review", "Sentiment"])
+
+print("Sample dataset:")
+print(df.head())
+
+# 2. Clean and tokenize text
+stop_words = set(ENGLISH_STOP_WORDS)
+
+def clean_text(text):
+    text = text.lower()
+    text = re.sub(r"[^a-z\s]", " ", text)
+    tokens = wordpunct_tokenize(text)
+
+    # Remove stop words and very short tokens
+    tokens = [
+        word for word in tokens
+        if word not in stop_words and len(word) > 1
+    ]
+
+    return tokens
+
+df["Tokens"] = df["Review"].apply(clean_text)
+
+print("\nTokenization and stopword removal:")
+print(df[["Review", "Tokens"]].head())
+
+# 3. Apply stemming and lemmatization
+stemmer = PorterStemmer()
+lemmatizer = WordNetLemmatizer()
+
+example_words = ["playing", "played", "products", "delivered", "better"]
+
+print("\nStemming vs Lemmatization:")
+for word in example_words:
+    print(
+        word,
+        "-> stem:", stemmer.stem(word),
+        "| lemma:", lemmatizer.lemmatize(word)
+    )
+
+# 4. Find the most frequent cleaned words
+all_tokens = [
+    word
+    for token_list in df["Tokens"]
+    for word in token_list
+]
+
+frequency = pd.Series(all_tokens).value_counts()
+
+print("\nTop 10 words:")
+print(frequency.head(10))
+
+frequency.head(10).sort_values().plot(kind="barh")
+plt.title("Most Frequent Words in Customer Reviews")
+plt.xlabel("Frequency")
+plt.tight_layout()
+plt.show()
+
+# 5. Prepare features and labels
+X = df["Review"]
+y = df["Sentiment"]
+
+X_train, X_test, y_train, y_test = train_test_split(
+    X,
+    y,
+    test_size=0.25,
+    random_state=42,
+    stratify=y
+)
+
+# 6. Build an NLP + machine-learning pipeline
+model = Pipeline([
+    ("tfidf", TfidfVectorizer(
+        lowercase=True,
+        stop_words="english",
+        ngram_range=(1, 2)
+    )),
+    ("classifier", LogisticRegression(max_iter=1000))
+])
+
+# 7. Train the model
+model.fit(X_train, y_train)
+
+# 8. Evaluate it
+predictions = model.predict(X_test)
+
+print("\nAccuracy:", round(accuracy_score(y_test, predictions), 3))
+print("\nClassification Report:")
+print(classification_report(y_test, predictions, zero_division=0))
+
+ConfusionMatrixDisplay.from_predictions(
+    y_test,
+    predictions,
+    labels=["Negative", "Positive"]
+)
+plt.title("Sentiment Classification")
+plt.tight_layout()
+plt.show()
+
+# 9. Analyze new reviews
+new_reviews = [
+    "Excellent quality and very fast delivery",
+    "Terrible product and poor service",
+    "The item arrived today"
+]
+
+new_predictions = model.predict(new_reviews)
+
+print("\nNew Review Predictions:")
+for review, sentiment in zip(new_reviews, new_predictions):
+    print(f"{review} -> {sentiment}")
